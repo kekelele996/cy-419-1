@@ -1,1 +1,63 @@
-import Phaser from 'phaser'; import { PlayerEntity } from '../entities/PlayerEntity'; import { BugEntity } from '../entities/BugEntity'; import { BugType } from '../../constants/bug'; import { logGame } from '../../utils/gameLogger'; export class GameScene extends Phaser.Scene { constructor(){ super('GameScene'); } create(){ logGame('PHASER_SCENE_START'); this.add.rectangle(320,210,640,420,0x18231a); new PlayerEntity(this,80,80); new BugEntity(this,200,150,BugType.NULL_POINTER); this.add.text(18,18,'DebugQuest Runtime', { color:'#f4f1dc' }); } }
+import Phaser from 'phaser';
+import { PlayerEntity } from '../entities/PlayerEntity';
+import { BugEntity } from '../entities/BugEntity';
+import { RuneEntity } from '../entities/RuneEntity';
+import { BugType } from '../../constants/bug';
+import { logGame } from '../../utils/gameLogger';
+import { useDungeonStore } from '../../stores/dungeonStore';
+import type { Rune } from '../../models/rune';
+
+export class GameScene extends Phaser.Scene {
+  private runeEntities: RuneEntity[] = [];
+  private unsubscribe?: () => void;
+
+  constructor() {
+    super('GameScene');
+  }
+
+  create() {
+    logGame('PHASER_SCENE_START');
+
+    this.add.rectangle(320, 210, 640, 420, 0x18231a);
+
+    new PlayerEntity(this, 80, 80);
+    new BugEntity(this, 200, 150, BugType.NULL_POINTER);
+
+    this.add.text(18, 18, 'DebugQuest Runtime', { color: '#f4f1dc' });
+
+    this.createGroundRunes();
+
+    this.unsubscribe = useDungeonStore.subscribe(
+      (state) => state.groundRunes,
+      (groundRunes) => {
+        this.updateRuneEntities(groundRunes);
+      }
+    );
+  }
+
+  private createGroundRunes() {
+    const groundRunes = useDungeonStore.getState().groundRunes;
+    this.updateRuneEntities(groundRunes);
+  }
+
+  private updateRuneEntities(groundRunes: Rune[]) {
+    this.runeEntities.forEach((rune) => rune.destroy());
+    this.runeEntities = [];
+
+    groundRunes.forEach((rune) => {
+      if (rune.position) {
+        const x = 40 + rune.position.x * 32;
+        const y = 40 + rune.position.y * 32;
+        const runeEntity = new RuneEntity(this, x, y, rune);
+        this.runeEntities.push(runeEntity);
+      }
+    });
+  }
+
+  destroy() {
+    if (this.unsubscribe) {
+      this.unsubscribe();
+    }
+    super.destroy();
+  }
+}
